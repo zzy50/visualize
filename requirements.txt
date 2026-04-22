@@ -1,0 +1,12 @@
+skia-python
+PyYAML
+timm
+# torch
+# torchvision
+
+# boxmot dependency
+scikit-learn
+loguru
+gdown
+ftfy
+regex
