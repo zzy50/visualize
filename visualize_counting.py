@@ -157,6 +157,7 @@ import re
 import time
 import subprocess
 import os
+import glob
 import cv2
 import numpy as np
 import skia
@@ -189,11 +190,23 @@ VIDEO_PATHS: "list[str] | None" = [
     # "input/금토분기점1.mp4",
     # "input/청주분기점.mp4",
     # "input/중부2터널_20251203080000_20251203111458.avi",
-    "input/궁평1교_20251203080000_20251203112024.avi",
-    # "input/진천터널2_20251203080000_20251203103657.avi"
+    # "input/궁평1교_20251203080000_20251203112024.avi",
+    # "input/진천터널2_20251203080000_20251203103657.avi",
+    # "input/set2/12종_*"
+    "input/set2/수도권*"
     ]
 VIDEO_DIR:   "str | None"       = "input"
 VIDEO_GLOB:  str                = "*.avi"
+
+# ── 자주 변경하는 설정 (Quick Access) ────────────────────────
+#   여기서 Stage-2 분류 on/off 와 classifier 종류를 빠르게 전환할 수 있다.
+#   DETECTORS 레지스트리 정의 뒤에 자동 적용됨.
+CUSTOM_STAGE2: bool              = True
+ACTIVE_CLASSIFIER: "str | None"  = "vehicle_subtype_8"
+# ACTIVE_CLASSIFIER: "str | None"  = "vehicle_subtype_12"
+#   "vehicle_subtype_8"  : mobilenetv3_large_100 (8종, custom YOLO 분류 보정)
+#   "vehicle_subtype_12" : tf_efficientnet_b3_ns (12종, 세분화된 차종)
+#   None                 : Stage-2 비활성, Stage-1(YOLO) 라벨만 사용
 
 # ── 디렉토리 레이아웃 ─────────────────────────────────────────
 #   input/       : 원본 영상
@@ -414,33 +427,7 @@ TRACKER_PREDICT_MAX_GAP     = 5
 # 실행 시 활성화할 detector 키들. 길이 >= 2 이면 비교(concat) 모드.
 ACTIVE_DETECTORS: "list[str]" = ["base", "custom"]
 DETECTORS["base"]["stage2"] = False
-DETECTORS["custom"]["stage2"] = True   # 커스텀 패널은 mobilenetv3 8종 stage-2 로 라벨 보정
-
-# 2-stage 재분류 classifier 키. None 이면 Stage-1(YOLO) 라벨만 사용.
-# 실제 추론은 DETECTORS[*]["stage2"]=True 인 패널이 하나라도 있을 때만 로드·적용된다.
-#   "vehicle_subtype_8"  : mobilenetv3_large_100 (8종, custom YOLO 의 분류 보정용)
-#   "vehicle_subtype_12" : tf_efficientnet_b3_ns (12종, 더 세분화된 차종)
-# ACTIVE_CLASSIFIER: "str | None" = "vehicle_subtype_8"
-ACTIVE_CLASSIFIER: "str | None" = "vehicle_subtype_12"
-
-# ── 실행 프리셋 예시 (주석 해제 후 ACTIVE_DETECTORS 와 맞춤 사용) ─────────
-# (1) base vs custom, Stage-1 만 (concat)
-#     ACTIVE_DETECTORS = ["base", "custom"]
-#     DETECTORS["base"]["stage2"] = False
-#     DETECTORS["custom"]["stage2"] = False
-#     ACTIVE_CLASSIFIER = None
-#
-# (2) base vs custom, 오른쪽(custom)만 YOLO + mobilenetv3(8종) 보정 (현재 기본)
-#     ACTIVE_DETECTORS = ["base", "custom"]
-#     DETECTORS["base"]["stage2"] = False
-#     DETECTORS["custom"]["stage2"] = True
-#     ACTIVE_CLASSIFIER = "vehicle_subtype_8"
-#
-# (3) base vs custom, 오른쪽(custom)만 YOLO + 12종 세분화 분류 덧씌우기
-#     ACTIVE_DETECTORS = ["base", "custom"]
-#     DETECTORS["base"]["stage2"] = False
-#     DETECTORS["custom"]["stage2"] = True
-#     ACTIVE_CLASSIFIER = "vehicle_subtype_12"
+DETECTORS["custom"]["stage2"] = CUSTOM_STAGE2   # ← 상단 Quick Access 에서 조절
 
 COMPARE_LAYOUT = "horizontal"   # 현재는 horizontal 만 지원
 
@@ -2379,15 +2366,26 @@ def _detect_headless():
 
 
 def collect_video_paths():
-    """VIDEO_PATHS (명시 리스트) → VIDEO_DIR+VIDEO_GLOB (패턴) 순으로 영상 경로 수집."""
+    """VIDEO_PATHS (명시 리스트) → VIDEO_DIR+VIDEO_GLOB (패턴) 순으로 영상 경로 수집.
+
+    VIDEO_PATHS 항목에 와일드카드(*, ?, [...])가 포함되면 glob 패턴으로 확장한다.
+    예: "input/set2/*", "input/**/*.mp4", "input/cam?/*.avi"
+    """
     paths = []
     if VIDEO_PATHS:
         for p in VIDEO_PATHS:
-            pp = Path(p)
-            if pp.exists():
-                paths.append(pp)
+            if any(ch in p for ch in ('*', '?', '[', ']')):
+                matched = sorted(Path(m) for m in glob.glob(p, recursive=True))
+                if matched:
+                    paths.extend(m for m in matched if m.is_file())
+                else:
+                    print(f"  [warn] VIDEO_PATHS 글로브 패턴에 매칭 없음: {p}")
             else:
-                print(f"  [warn] VIDEO_PATHS에 지정된 파일 없음: {p}")
+                pp = Path(p)
+                if pp.exists():
+                    paths.append(pp)
+                else:
+                    print(f"  [warn] VIDEO_PATHS에 지정된 파일 없음: {p}")
     elif VIDEO_DIR:
         vd = Path(VIDEO_DIR)
         if vd.is_dir():
