@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(python -c \"import supervision as sv; print\\([x for x in dir\\(sv\\) if ''Annotator'' in x]\\)\")",
-      "Bash(pip install:*)",
-      "Bash(python -c \":*)"
-    ]
-  }
-}
