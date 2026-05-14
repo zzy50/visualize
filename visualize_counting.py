@@ -192,8 +192,8 @@ VIDEO_PATHS: "list[str] | None" = [
     # "input/중부2터널_20251203080000_20251203111458.avi",
     # "input/궁평1교_20251203080000_20251203112024.avi",
     # "input/진천터널2_20251203080000_20251203103657.avi",
-    # "input/set2/12종_*"
-    "input/set2/수도권*"
+    "input/set2/12종_*"
+    # "input/set2/수도권*"
     ]
 VIDEO_DIR:   "str | None"       = "input"
 VIDEO_GLOB:  str                = "*.avi"
@@ -202,8 +202,9 @@ VIDEO_GLOB:  str                = "*.avi"
 #   여기서 Stage-2 분류 on/off 와 classifier 종류를 빠르게 전환할 수 있다.
 #   DETECTORS 레지스트리 정의 뒤에 자동 적용됨.
 CUSTOM_STAGE2: bool              = True
-ACTIVE_CLASSIFIER: "str | None"  = "vehicle_subtype_8"
-# ACTIVE_CLASSIFIER: "str | None"  = "vehicle_subtype_12"
+# ACTIVE_CLASSIFIER: "str | None"  = "vehicle_subtype_8"
+ACTIVE_CLASSIFIER: "str | None"  = "vehicle_subtype_12"
+
 #   "vehicle_subtype_8"  : mobilenetv3_large_100 (8종, custom YOLO 분류 보정)
 #   "vehicle_subtype_12" : tf_efficientnet_b3_ns (12종, 세분화된 차종)
 #   None                 : Stage-2 비활성, Stage-1(YOLO) 라벨만 사용
