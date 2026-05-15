@@ -192,8 +192,10 @@ VIDEO_PATHS: "list[str] | None" = [
     # "input/중부2터널_20251203080000_20251203111458.avi",
     # "input/궁평1교_20251203080000_20251203112024.avi",
     # "input/진천터널2_20251203080000_20251203103657.avi",
-    "input/set2/12종_*"
+    # "input/set2/12종_*"
     # "input/set2/수도권*"
+    # "input/set2/12종_good_case_상산곡교.mp4"
+    "input/set3/용인VDS.mp4"
     ]
 VIDEO_DIR:   "str | None"       = "input"
 VIDEO_GLOB:  str                = "*.avi"
@@ -322,6 +324,10 @@ CLASSIFIERS = {
 # Stage-1 cls id 와 충돌하지 않도록 Stage-2 에 할당하는 id 오프셋 (COCO 최대 79, custom 최대 7)
 CLASSIFIER_STAGE2_ID_OFFSET = 256
 
+# Stage-2 분류기 로드 시 동적으로 채워지는 {cls_name: "(N)"} 매핑.
+# info YAML 의 인덱스 순서에서 1-based 번호를 생성하므로 분류기에 따라 자동 결정된다.
+_STAGE2_INDEX_SUFFIX: "dict[str, str]" = {}
+
 # ── Stage-2 분류 안정화 ───────────────────────────────────────
 #   매 프레임 같은 차량을 독립적으로 분류하면 분류기 출력이 살짝만 흔들려도
 #   라벨이 깜박입니다 (예: bus_s ↔ car ↔ bus_s). 다음 옵션들이 그 jitter 를 제거.
@@ -426,7 +432,8 @@ TRACKER_USE_LOST_PREDICTION = True
 TRACKER_PREDICT_MAX_GAP     = 5
 
 # 실행 시 활성화할 detector 키들. 길이 >= 2 이면 비교(concat) 모드.
-ACTIVE_DETECTORS: "list[str]" = ["base", "custom"]
+# ACTIVE_DETECTORS: "list[str]" = ["base", "custom"]
+ACTIVE_DETECTORS: "list[str]" = ["custom"]
 DETECTORS["base"]["stage2"] = False
 DETECTORS["custom"]["stage2"] = CUSTOM_STAGE2   # ← 상단 Quick Access 에서 조절
 
@@ -1175,17 +1182,36 @@ def is_hidden_class(cls_name):
     return normalize_class(cls_name) in HIDDEN_CLASSES
 
 
-def get_display_name(cls_name):
-    """차종 내부명을 그룹핑 설정에 따라 표시명으로 변환"""
+def get_display_name(cls_name, cls_idx=None, use_stage2_suffix=True):
+    """차종 내부명을 그룹핑 설정에 따라 표시명으로 변환.
+
+    cls_idx 가 주어지고 Stage-2 범위(>= CLASSIFIER_STAGE2_ID_OFFSET)이면
+    분류기 info YAML 순서 기반 ``(N)`` 접미사를 붙인다.
+    cls_idx 가 None 이면 _STAGE2_INDEX_SUFFIX 이름 매핑으로 폴백한다.
+    use_stage2_suffix=False 이면 ``(N)`` 접미사를 아예 붙이지 않는다
+    (Stage-2 를 사용하지 않는 패널에서 호출할 때).
+    """
     label_map = CLASS_EN if LABEL_LANG == "en" else CLASS_KOR
     if GROUP_TRUCK and cls_name.startswith("truck"):
-        return "Truck" if LABEL_LANG == "en" else "화물차"
-    if GROUP_BUS and cls_name.startswith("bus"):
-        return "Bus" if LABEL_LANG == "en" else "버스"
-    return label_map.get(cls_name, cls_name)
+        base = "Truck" if LABEL_LANG == "en" else "화물차"
+    elif GROUP_BUS and cls_name.startswith("bus"):
+        base = "Bus" if LABEL_LANG == "en" else "버스"
+    else:
+        base = label_map.get(cls_name, cls_name)
+
+    if not use_stage2_suffix:
+        return base
+
+    if cls_idx is not None and cls_idx >= CLASSIFIER_STAGE2_ID_OFFSET:
+        n = cls_idx - CLASSIFIER_STAGE2_ID_OFFSET + 1
+        return f"{base}({n})"
+    suffix = _STAGE2_INDEX_SUFFIX.get(cls_name, "")
+    if suffix:
+        return f"{base}{suffix}"
+    return base
 
 
-def group_class_counts(class_counts):
+def group_class_counts(class_counts, use_stage2_suffix=True):
     """차종별 카운트를 그룹핑 설정에 따라 통합하여 [(display_name, count, color)] 반환"""
     grouped = {}
     order = []
@@ -1193,7 +1219,7 @@ def group_class_counts(class_counts):
         count = class_counts.get(cls_name, 0)
         if count == 0:
             continue
-        display = get_display_name(cls_name)
+        display = get_display_name(cls_name, use_stage2_suffix=use_stage2_suffix)
         if display in grouped:
             grouped[display] = (grouped[display][0] + count, grouped[display][1])
         else:
@@ -1204,7 +1230,7 @@ def group_class_counts(class_counts):
     for cls_name in sorted(k for k in class_counts if class_counts[k] > 0):
         if cls_name in CLASS_DISPLAY_ORDER:
             continue
-        display = get_display_name(cls_name)
+        display = get_display_name(cls_name, use_stage2_suffix=use_stage2_suffix)
         count = class_counts[cls_name]
         if display in grouped:
             grouped[display] = (grouped[display][0] + count, grouped[display][1])
@@ -1532,9 +1558,10 @@ class SimpleCounter:
 # ═══════════════════════════════════════════════════════════════
 
 class SkiaCountingRenderer:
-    def __init__(self, w, h, counting_lines, roi_polygon=None):
+    def __init__(self, w, h, counting_lines, roi_polygon=None, use_stage2=False):
         self.w, self.h = w, h
         self.counting_lines = counting_lines
+        self.use_stage2 = use_stage2
 
         # ── 해상도 자동 스케일 ───────────────────────────────────
         # 모든 픽셀 단위 시각화 요소에 곱해질 단일 배율.
@@ -1775,7 +1802,7 @@ class SkiaCountingRenderer:
             canvas.drawPath(outer_path, roi_dim_paint)
 
         # 2) 1패스: 데이터 수집 + trace_history 업데이트
-        draw_data = []  # [(x1,y1,x2,y2, col, r,g,b, alpha, in_roi, bcx,bcy, tid, cls_name)]
+        draw_data = []  # [(x1,y1,x2,y2, col, r,g,b, alpha, in_roi, bcx,bcy, tid, cls_name, cls_idx)]
         for box in boxes:
             x1, y1, x2, y2 = map(float, box[:4])
             tid = int(box[4])
@@ -1801,7 +1828,7 @@ class SkiaCountingRenderer:
                 if len(self.trace_history[tid]) > self.trace_max:
                     self.trace_history[tid] = self.trace_history[tid][-self.trace_max:]
 
-            draw_data.append((x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name))
+            draw_data.append((x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name, cls_idx))
 
         # 2a) bbox + 중심점
         # 해상도 스케일 적용한 코너/글로우 픽셀 메트릭 (프레임 루프 밖에서 1회 산출)
@@ -1815,7 +1842,7 @@ class SkiaCountingRenderer:
         glow_round   = max(4.0, 12.0 * s)
         rrect_round  = max(3.0, 8.0  * s)
 
-        for x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name in draw_data:
+        for x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name, cls_idx in draw_data:
             bw, bh = x2 - x1, y2 - y1
 
             if BBOX_STYLE == "corner":
@@ -1898,7 +1925,7 @@ class SkiaCountingRenderer:
         # 2b) 궤적 — 모든 bbox 위에 그림
         traj_max_w = max(0.6, TRAJECTORY_WIDTH * s)
         traj_min_w = max(0.3, TRAJECTORY_TAPER_MIN_WIDTH * s)
-        for x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name in draw_data:
+        for x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name, cls_idx in draw_data:
             if not (SHOW_TRAJECTORY and tid >= 0):
                 continue
             pts = self.trace_history.get(tid, [])
@@ -1937,10 +1964,10 @@ class SkiaCountingRenderer:
         pill_round = max(3.0, 6.0 * s)
         text_off_x = max(3.0, 7.0 * s)
         text_off_y = max(8.0, 14.0 * s)
-        for x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name in draw_data:
+        for x1, y1, x2, y2, col, r, g, b, alpha, in_roi, bcx, bcy, tid, cls_name, cls_idx in draw_data:
             if not (in_roi or ROI_SHOW_LABEL):
                 continue
-            label = get_display_name(cls_name)
+            label = get_display_name(cls_name, cls_idx, use_stage2_suffix=self.use_stage2)
             if SHOW_TRACK_ID and tid >= 0:
                 label = f"#{tid} {label}"
             text_w = self.font_label.measureText(label)
@@ -2111,7 +2138,7 @@ class SkiaCountingRenderer:
             n = aggregated[cls]
             if n <= 0 or is_hidden_class(cls):
                 continue
-            rows.append((cls, n, get_display_name(cls), self._cls_rgb(cls)))
+            rows.append((cls, n, get_display_name(cls, use_stage2_suffix=self.use_stage2), self._cls_rgb(cls)))
         grand_total = sum(n for _, n, _, _ in rows)
 
         # 레이아웃 메트릭
@@ -2236,12 +2263,12 @@ class SkiaCountingRenderer:
             for line_idx, _ in self.counting_lines:
                 label = SINGLE_LINE_LABELS.get(line_idx, f"Line {line_idx}")
                 class_counts = line_class_counts.get(line_idx, {})
-                grouped = group_class_counts(class_counts)
+                grouped = group_class_counts(class_counts, use_stage2_suffix=self.use_stage2)
                 total = len(line_unique_tracks.get(line_idx, ()))  # 고유 track 수
                 sections.append((label, total, grouped))
 
             # 전체 합산 섹션
-            total_grouped = group_class_counts(total_class_counts)
+            total_grouped = group_class_counts(total_class_counts, use_stage2_suffix=self.use_stage2)
             total_all = sum(c for _, c, _ in total_grouped)
             sections.append(("Total", total_all, total_grouped))
             hud_title = "Traffic Info (single-line)"
@@ -2251,7 +2278,7 @@ class SkiaCountingRenderer:
             sections = []
             for direction, lane_name in LANE_MAP.items():
                 class_counts = lane_class_counts.get(direction, {})
-                grouped = group_class_counts(class_counts)
+                grouped = group_class_counts(class_counts, use_stage2_suffix=self.use_stage2)
                 total = sum(c for _, c, _ in grouped)
                 sections.append((lane_name, total, grouped))
             hud_title = "Traffic Info"
@@ -2660,6 +2687,10 @@ def load_classifier_bundle(key, device):
         raise FileNotFoundError(f"Classifier weights not found: {wpath}")
 
     info = load_class_info(cfg["info"])
+
+    global _STAGE2_INDEX_SUFFIX
+    _STAGE2_INDEX_SUFFIX = {name: f"({i + 1})" for i, name in info.items()}
+
     timm_name = cfg.get("timm_model", "tf_efficientnet_b3_ns")
     model = timm.create_model(timm_name, pretrained=False, num_classes=len(info))
 
@@ -3416,7 +3447,7 @@ def process_single_video(video_path, cfg, engines_spec, tracker_factory, batch_t
             "allowed_classes"     : spec.get("allowed_classes"),
             "tracker"             : tracker_factory(),
             "counter"             : SimpleCounter(counting_lines, merged, target_fps=int(vid_fps)),
-            "renderer"            : SkiaCountingRenderer(w, h, counting_lines, roi_polygon=roi_polygon),
+            "renderer"            : SkiaCountingRenderer(w, h, counting_lines, roi_polygon=roi_polygon, use_stage2=use_s2),
         }
         engines.append(eng)
 
@@ -3613,13 +3644,13 @@ def process_single_video(video_path, cfg, engines_spec, tracker_factory, batch_t
                 label = SINGLE_LINE_LABELS.get(line_idx, f"Line {line_idx}")
                 cnt = len(counter.line_unique_tracks.get(line_idx, ()))
                 cls_counts = counter.line_class_counts.get(line_idx, {})
-                grouped = group_class_counts(cls_counts)
+                grouped = group_class_counts(cls_counts, use_stage2_suffix=eng["use_stage2"])
                 if grouped:
                     detail = ", ".join(f"{n}:{c}" for n, c, _ in grouped)
                     print(f"    {label}: {cnt}  [{detail}]")
                 else:
                     print(f"    {label}: {cnt}")
-            total_grouped = group_class_counts(counter.total_class_counts)
+            total_grouped = group_class_counts(counter.total_class_counts, use_stage2_suffix=eng["use_stage2"])
             engine_total = sum(c for _, c, _ in total_grouped)
             if total_grouped:
                 detail = ", ".join(f"{n}:{c}" for n, c, _ in total_grouped)
@@ -3629,7 +3660,7 @@ def process_single_video(video_path, cfg, engines_spec, tracker_factory, batch_t
         else:
             for direction, lane_name in LANE_MAP.items():
                 counts = counter.lane_class_counts.get(direction, {})
-                grouped = group_class_counts(counts)
+                grouped = group_class_counts(counts, use_stage2_suffix=eng["use_stage2"])
                 total = sum(c for _, c, _ in grouped)
                 engine_total += total
                 if total > 0:

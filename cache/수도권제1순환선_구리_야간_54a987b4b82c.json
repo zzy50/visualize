@@ -1,0 +1,100 @@
+{
+  "fingerprint": {
+    "video": {
+      "path": "input/set2/수도권제1순환선_구리_야간.mp4",
+      "size": 37768694,
+      "mtime": 1778006377.1843412
+    },
+    "config": {
+      "polylines_lst": [
+        {
+          "id": 0,
+          "num_lines": 1,
+          "coords": [
+            [
+              308,
+              262,
+              608,
+              339
+            ]
+          ]
+        }
+      ],
+      "roi_polygon": [
+        [
+          8,
+          395
+        ],
+        [
+          467,
+          181
+        ],
+        [
+          602,
+          88
+        ],
+        [
+          641,
+          92
+        ],
+        [
+          641,
+          142
+        ],
+        [
+          671,
+          200
+        ],
+        [
+          628,
+          474
+        ],
+        [
+          6,
+          474
+        ]
+      ]
+    },
+    "detection": {
+      "path": "models/detection/YOLOv11_l-cat_8-size_960.pt",
+      "size": 51271186,
+      "mtime": 1776763927.781558,
+      "allowed_names": null,
+      "conf": 0.25,
+      "iou": 0.45,
+      "imgsz": 960
+    },
+    "classification": null,
+    "counting": {
+      "mode": "single_line",
+      "max_seconds": 60
+    },
+    "roi": {
+      "enabled": true,
+      "outside_behavior": "hide"
+    },
+    "tracker": {
+      "use_tracker_bbox": true,
+      "use_lost_prediction": true,
+      "predict_max_gap": 5,
+      "track_buffer": 45
+    },
+    "hidden_classes": [
+      "bike",
+      "person"
+    ],
+    "center_point_height_offset": 0.15
+  },
+  "hash": "54a987b4b82c",
+  "video_stem": "수도권제1순환선_구리_야간",
+  "created_at": "2026-05-15T18:11:20",
+  "elapsed_sec": 34.33,
+  "frames_processed": 1799,
+  "total_class_counts": {
+    "truck_s": 6,
+    "car": 65,
+    "truck_m": 3,
+    "bus_m": 1,
+    "truck_x": 1
+  }
+}

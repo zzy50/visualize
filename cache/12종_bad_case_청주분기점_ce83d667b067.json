@@ -1,0 +1,174 @@
+{
+  "fingerprint": {
+    "video": {
+      "path": "input/set2/12종_bad_case_청주분기점.mp4",
+      "size": 17113083,
+      "mtime": 1778006375.310347
+    },
+    "config": {
+      "polylines_lst": [
+        {
+          "id": 0,
+          "num_lines": 1,
+          "coords": [
+            [
+              127,
+              271,
+              197,
+              261
+            ]
+          ]
+        },
+        {
+          "id": 1,
+          "num_lines": 1,
+          "coords": [
+            [
+              242,
+              258,
+              316,
+              252
+            ]
+          ]
+        },
+        {
+          "id": 2,
+          "num_lines": 1,
+          "coords": [
+            [
+              297,
+              206,
+              345,
+              201
+            ]
+          ]
+        },
+        {
+          "id": 3,
+          "num_lines": 1,
+          "coords": [
+            [
+              345,
+              200,
+              399,
+              193
+            ]
+          ]
+        }
+      ],
+      "roi_polygon": [
+        [
+          120,
+          472
+        ],
+        [
+          95,
+          164
+        ],
+        [
+          150,
+          170
+        ],
+        [
+          207,
+          259
+        ],
+        [
+          194,
+          103
+        ],
+        [
+          267,
+          97
+        ],
+        [
+          309,
+          157
+        ],
+        [
+          369,
+          128
+        ],
+        [
+          428,
+          131
+        ],
+        [
+          411,
+          162
+        ],
+        [
+          713,
+          309
+        ],
+        [
+          717,
+          477
+        ]
+      ]
+    },
+    "detection": {
+      "path": "models/detection/YOLOv11_l-cat_8-size_960.pt",
+      "size": 51271186,
+      "mtime": 1776763927.781558,
+      "allowed_names": null,
+      "conf": 0.25,
+      "iou": 0.45,
+      "imgsz": 960
+    },
+    "classification": {
+      "key": "vehicle_subtype_12",
+      "path": "models/classification/tf_efficientnet_b3_img300_bs32_lr0.004_SGD_best_f1_0.747_epoch7.pt",
+      "size": 43412293,
+      "mtime": 1776763922.5835195,
+      "smooth_enabled": true,
+      "smooth_alpha": 0.35,
+      "min_top1_prob": 0.45,
+      "min_margin": 0.08,
+      "bbox_padding": 0.08,
+      "smooth_ttl_sec": 8.0,
+      "trust_bbox_px": 80,
+      "trust_top1": 0.55,
+      "trust_alpha": 0.8,
+      "trust_adaptive": true,
+      "trust_pct": 75.0,
+      "trust_warmup": 50,
+      "trust_floor": 40,
+      "trust_recompute_every": 30,
+      "apply_when": "after_tracking",
+      "transform_style": "raw",
+      "input_size": 300,
+      "min_bbox": 32
+    },
+    "counting": {
+      "mode": "single_line",
+      "max_seconds": 60
+    },
+    "roi": {
+      "enabled": true,
+      "outside_behavior": "hide"
+    },
+    "tracker": {
+      "use_tracker_bbox": true,
+      "use_lost_prediction": true,
+      "predict_max_gap": 5,
+      "track_buffer": 45
+    },
+    "hidden_classes": [
+      "bike",
+      "person"
+    ],
+    "center_point_height_offset": 0.15
+  },
+  "hash": "ce83d667b067",
+  "video_stem": "12종_bad_case_청주분기점",
+  "created_at": "2026-05-15T18:08:05",
+  "elapsed_sec": 59.05,
+  "frames_processed": 1820,
+  "total_class_counts": {
+    "car": 13,
+    "truck_m_3W": 3,
+    "bus": 1,
+    "truck_s_a": 2
+  }
+}

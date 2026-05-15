@@ -1,0 +1,148 @@
+{
+  "fingerprint": {
+    "video": {
+      "path": "input/set2/수도권제1순환선_장수_야간.mp4",
+      "size": 38330424,
+      "mtime": 1778006378.3643377
+    },
+    "config": {
+      "polylines_lst": [
+        {
+          "id": 0,
+          "num_lines": 1,
+          "coords": [
+            [
+              194,
+              305,
+              373,
+              290
+            ]
+          ]
+        },
+        {
+          "id": 1,
+          "num_lines": 1,
+          "coords": [
+            [
+              380,
+              290,
+              554,
+              274
+            ]
+          ]
+        }
+      ],
+      "roi_polygon": [
+        [
+          201,
+          474
+        ],
+        [
+          155,
+          253
+        ],
+        [
+          160,
+          200
+        ],
+        [
+          188,
+          145
+        ],
+        [
+          267,
+          112
+        ],
+        [
+          351,
+          102
+        ],
+        [
+          415,
+          108
+        ],
+        [
+          362,
+          129
+        ],
+        [
+          363,
+          150
+        ],
+        [
+          379,
+          167
+        ],
+        [
+          435,
+          106
+        ],
+        [
+          450,
+          107
+        ],
+        [
+          430,
+          149
+        ],
+        [
+          401,
+          186
+        ],
+        [
+          626,
+          300
+        ],
+        [
+          715,
+          350
+        ],
+        [
+          715,
+          476
+        ]
+      ]
+    },
+    "detection": {
+      "path": "models/detection/YOLOv11_l-cat_8-size_960.pt",
+      "size": 51271186,
+      "mtime": 1776763927.781558,
+      "allowed_names": null,
+      "conf": 0.25,
+      "iou": 0.45,
+      "imgsz": 960
+    },
+    "classification": null,
+    "counting": {
+      "mode": "single_line",
+      "max_seconds": 60
+    },
+    "roi": {
+      "enabled": true,
+      "outside_behavior": "hide"
+    },
+    "tracker": {
+      "use_tracker_bbox": true,
+      "use_lost_prediction": true,
+      "predict_max_gap": 5,
+      "track_buffer": 45
+    },
+    "hidden_classes": [
+      "bike",
+      "person"
+    ],
+    "center_point_height_offset": 0.15
+  },
+  "hash": "c2da9e0f4215",
+  "video_stem": "수도권제1순환선_장수_야간",
+  "created_at": "2026-05-15T18:12:36",
+  "elapsed_sec": 35.9,
+  "frames_processed": 1798,
+  "total_class_counts": {
+    "car": 118,
+    "bus_m": 1,
+    "bus_s": 1,
+    "truck_s": 5,
+    "truck_x": 1
+  }
+}
