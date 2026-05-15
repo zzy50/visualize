@@ -324,8 +324,19 @@ CLASSIFIERS = {
 # Stage-1 cls id 와 충돌하지 않도록 Stage-2 에 할당하는 id 오프셋 (COCO 최대 79, custom 최대 7)
 CLASSIFIER_STAGE2_ID_OFFSET = 256
 
-# Stage-2 분류기 로드 시 동적으로 채워지는 {cls_name: "(N)"} 매핑.
-# info YAML 의 인덱스 순서에서 1-based 번호를 생성하므로 분류기에 따라 자동 결정된다.
+# Stage-2 표시 번호 (비즈니스 정의 순서).
+# info YAML 의 인코딩 인덱스와는 무관한 도메인 순서이며, 분류기별로 정의한다.
+# load_classifier_bundle() 에서 활성 분류기의 엔트리를 _STAGE2_INDEX_SUFFIX 에 채운다.
+CLASSIFIER_DISPLAY_ORDER = {
+    "vehicle_subtype_12": [
+        "car", "bus",
+        "truck_s_a", "truck_s_b",
+        "truck_m_3W", "truck_m_4W", "truck_m_5W",
+        "truck_4W_ST", "truck_4W_FT",
+        "truck_5W_ST", "truck_5W_FT",
+        "truck_6W_ST",
+    ],
+}
 _STAGE2_INDEX_SUFFIX: "dict[str, str]" = {}
 
 # ── Stage-2 분류 안정화 ───────────────────────────────────────
@@ -1185,10 +1196,9 @@ def is_hidden_class(cls_name):
 def get_display_name(cls_name, cls_idx=None, use_stage2_suffix=True):
     """차종 내부명을 그룹핑 설정에 따라 표시명으로 변환.
 
-    cls_idx 가 주어지고 Stage-2 범위(>= CLASSIFIER_STAGE2_ID_OFFSET)이면
-    분류기 info YAML 순서 기반 ``(N)`` 접미사를 붙인다.
-    cls_idx 가 None 이면 _STAGE2_INDEX_SUFFIX 이름 매핑으로 폴백한다.
-    use_stage2_suffix=False 이면 ``(N)`` 접미사를 아예 붙이지 않는다
+    use_stage2_suffix=True 이고 _STAGE2_INDEX_SUFFIX 에 cls_name 이 있으면
+    CLASSIFIER_DISPLAY_ORDER 에 정의된 비즈니스 순서 기반 ``(N)`` 접미사를 붙인다.
+    use_stage2_suffix=False 이면 접미사를 붙이지 않는다
     (Stage-2 를 사용하지 않는 패널에서 호출할 때).
     """
     label_map = CLASS_EN if LABEL_LANG == "en" else CLASS_KOR
@@ -1199,15 +1209,10 @@ def get_display_name(cls_name, cls_idx=None, use_stage2_suffix=True):
     else:
         base = label_map.get(cls_name, cls_name)
 
-    if not use_stage2_suffix:
-        return base
-
-    if cls_idx is not None and cls_idx >= CLASSIFIER_STAGE2_ID_OFFSET:
-        n = cls_idx - CLASSIFIER_STAGE2_ID_OFFSET + 1
-        return f"{base}({n})"
-    suffix = _STAGE2_INDEX_SUFFIX.get(cls_name, "")
-    if suffix:
-        return f"{base}{suffix}"
+    if use_stage2_suffix:
+        suffix = _STAGE2_INDEX_SUFFIX.get(cls_name, "")
+        if suffix:
+            return f"{base}{suffix}"
     return base
 
 
@@ -2689,7 +2694,11 @@ def load_classifier_bundle(key, device):
     info = load_class_info(cfg["info"])
 
     global _STAGE2_INDEX_SUFFIX
-    _STAGE2_INDEX_SUFFIX = {name: f"({i + 1})" for i, name in info.items()}
+    display_order = CLASSIFIER_DISPLAY_ORDER.get(key)
+    if display_order:
+        _STAGE2_INDEX_SUFFIX = {name: f"({i + 1})" for i, name in enumerate(display_order)}
+    else:
+        _STAGE2_INDEX_SUFFIX = {name: f"({i + 1})" for i, name in info.items()}
 
     timm_name = cfg.get("timm_model", "tf_efficientnet_b3_ns")
     model = timm.create_model(timm_name, pretrained=False, num_classes=len(info))
